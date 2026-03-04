@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\News;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class NewsController extends Controller
 {
@@ -26,22 +27,41 @@ class NewsController extends Controller
         $request->validate([
             'id_kategori' => 'required',
             'judul_berita' => 'required',
-            'berita' => 'required',
-            'gambar' => 'image|mimes:jpg,png,jpeg|max:2048'
+            'berita' => 'required'
         ]);
 
-        $gambar = null;
+        $gambarPath = null;
 
-        if($request->hasFile('gambar')){
-            $file = $request->file('gambar');
-            $gambar = $file->store('news','public');
+        if($request->gambar){
+
+            $image = $request->gambar;
+
+            if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
+
+                $image = substr($image, strpos($image, ',') + 1);
+                $type = strtolower($type[1]);
+
+                $image = base64_decode($image);
+
+            } else {
+
+                $image = base64_decode($image);
+                $type = 'png';
+
+            }
+
+            $fileName = Str::random(20) . '.' . $type;
+
+            Storage::disk('public')->put('news/'.$fileName, $image);
+
+            $gambarPath = 'news/'.$fileName;
         }
 
         $news = News::create([
             'id_kategori' => $request->id_kategori,
             'judul_berita' => $request->judul_berita,
             'berita' => $request->berita,
-            'gambar' => $gambar
+            'gambar' => $gambarPath
         ]);
 
         return response()->json([
@@ -70,6 +90,7 @@ class NewsController extends Controller
         ]);
     }
 
+
     public function update(Request $request, $id)
     {
 
@@ -82,27 +103,39 @@ class NewsController extends Controller
             ]);
         }
 
-        $request->validate([
-            'id_kategori' => 'required',
-            'judul_berita' => 'required',
-            'berita' => 'required'
-        ]);
-
-        if($request->hasFile('gambar')){
+        if($request->gambar){
 
             if($news->gambar){
                 Storage::disk('public')->delete($news->gambar);
             }
 
-            $file = $request->file('gambar');
-            $gambar = $file->store('news','public');
+            $image = $request->gambar;
 
-            $news->gambar = $gambar;
+            if (preg_match('/^data:image\/(\w+);base64,/', $image, $type)) {
+
+                $image = substr($image, strpos($image, ',') + 1);
+                $type = strtolower($type[1]);
+
+                $image = base64_decode($image);
+
+            } else {
+
+                $image = base64_decode($image);
+                $type = 'png';
+
+            }
+
+            $fileName = Str::random(20) . '.' . $type;
+
+            Storage::disk('public')->put('news/'.$fileName, $image);
+
+            $news->gambar = 'news/'.$fileName;
         }
 
         $news->id_kategori = $request->id_kategori;
         $news->judul_berita = $request->judul_berita;
         $news->berita = $request->berita;
+
         $news->save();
 
         return response()->json([
